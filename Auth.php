@@ -1,10 +1,11 @@
 <?php
+
 class Auth
 {
 	private $dbh;
 	public $config;
 	
-	public function __construct(\PDO $dbh, $config)
+	private function __construct(\PDO $dbh, $config)
 	{
 		$this->dbh = $dbh;
 		$this->config = $config;
