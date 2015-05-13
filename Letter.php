@@ -16,6 +16,12 @@ class Letter {
     var $unsubscribe = true;
     var $headers = "MIME-Version: 1.0\r\nContent-type: text/html; Charset=utf-8\r\nFrom:support@domain.com\r\n";
 
+        
+    function SendMail($email, $title, $HTMLLetter, $headers)
+    {
+        return mail($email, $title, $HTMLLetter, $headers);
+    }
+    
     function Send() {
         switch ($this->type) {
 
@@ -151,8 +157,9 @@ class Letter {
                 ($this->unsubscribe ? "<font size=-1>If you want to unsubscribe from email notifications <a href=\"http://www.domain.com/account\" target='_blank'>click here</a></font>" : "") .
                 "</html>";
 
-        return mail($this->email, $this->title, $this->HTMLLetter, $this->headers);
+        $this->SendMail($this->email, $this->title, $this->HTMLLetter, $this->headers);
     }
+
 
 }
 
