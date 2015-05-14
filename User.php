@@ -1,59 +1,25 @@
 <?php
-include_once __DIR__ . 'AuthException.php';
-include_once __DIR__ . 'Validate.php';
-include_once __DIR__ . 'Request.php'; 
-include_once __DIR__ . 'Attempt.php';
 
 class User
 {
     private $dbh;
     private $config;
-    private $request;
-    private $attempt;
+    public $request;
 
-    private function __construct(\PDO $dbh, $config, $request = null, $attempt = null) {
+    private function __construct(\PDO $dbh, $config, $request = null) {
         $this->dbh = $dbh;
         $this->config = $config;
-        $this->request = ($request == null ? new Request($dbh, $config) : $request);
-        $this->attempt = ($attempt == null ? new Attempt($dbh, $config) : $attempt);
-    }
-    
-    public function activate($key)
-    {
-        $this->attempt->isBlocked();	
-        Validate::validateKey($key);
-
-        $getRequest = $this->request->getRequest($key, "activation");
-
-        if($this->getUser($getRequest['uid'])['isactive'] == 1) {
-            $this->request->deleteRequest($getRequest['id']);
-            throw new AuthException(AuthException::ERROR_AUTH_SYSTEM_ERROR, 1);
-        }
-
-        $query = $this->dbh->prepare("UPDATE {$this->config->table_users} SET isactive = ? WHERE id = ?");
-        $query->execute(array(1, $getRequest['uid']));
-        $this->request->deleteRequest($getRequest['id']);
-    }
-    
-    public function resendActivation($email)
-    {
-        $this->attempt->isBlocked();
-        Validate::validateEmail($email);
-
-        $query = $this->dbh->prepare("SELECT id FROM {$this->config->table_users} WHERE email = ?");
-        $query->execute(array($email));
-        if($query->rowCount() == 0) {
-            throw new AuthException(AuthException::ERROR_VALIDATE_EMAIL_INCORRECT,1);
-        }
-
-        $row = $query->fetch(PDO::FETCH_ASSOC);
-        if ($this->getUser($row['id'])['isactive'] == 1) {
-            throw new AuthException(AuthException::ERROR_VALIDATE_ALREADY_ACTIVATED,1);
-        }
-
-        $this->request->addRequest($row['id'], $email, "activation");
-    }
+        if(!class_exists('AuthException')) include __DIR__ . 'AuthException.php';
+        if(!class_exists('Validate')) include __DIR__ . 'Validate.php';
         
+        if($request == null){
+            if(!class_exists('Request')) include __DIR__ . 'Request.php';
+            $this->request = new Request($dbh, $config);
+        }else{
+            $this->request = $request;
+        }
+    }
+
     public function getUID($username)
     {
         $query = $this->dbh->prepare("SELECT id FROM {$this->config->table_users} WHERE username = ?");
@@ -64,10 +30,7 @@ class User
         
     public function addUser($email, $username, $password)
     {
-        Validate::validateUsername($username);
-        Validate::validateUsernameBanned($username);
-        
-        $query = $this->dbh->prepare("INSERT INTO {$this->config->table_users} VALUES ()"); #<- запрос приведет к ошибке
+        $query = $this->dbh->prepare("INSERT INTO {$this->config->table_users} VALUES ()");
         if (!$query->execute()) {
             throw new AuthException(AuthException::ERROR_AUTH_SYSTEM_ERROR, 1);
         }
@@ -113,7 +76,7 @@ class User
     public function deleteUser($uid, $password)
     {
         try {
-            $this->attempt->isBlocked();
+            $this->request->isBlocked();
             Validate::validatePassword($password);
 
             $getUser = $this->getUser($uid);
@@ -146,7 +109,7 @@ class User
             if ($ex->getMessage() !== AuthException::ERROR_USER_BLOCKED ||
                 $ex->getMessage() !== AuthException::ERROR_AUTH_SYSTEM_ERROR) {
 
-                $this->attempt->addAttempt();
+                $this->addAttempt();
             }
                 
             $return = array('error' => $ex->getCode(), 'message' => $ex->getMessage());
@@ -163,7 +126,7 @@ class User
     public function resetPass($key, $password, $repeatpassword)
     {
         try {
-            $this->attempt->isBlocked();
+            $this->isBlocked();
             Validate::validateKey($key);
             Validate::validatePassword($password);
 
@@ -172,10 +135,14 @@ class User
             }
 
             $data = $this->request->getRequest($key, "reset");
+            if($data['error'] == 1) {
+                throw new AuthException($data['message'], 1);
+            }
+
             $user = $this->getUser($data['uid']);
 
             if(!$user || password_verify($password, $user['password'])) {
-                $this->attempt->addAttempt();
+                $this->request->addAttempt();
                 $this->request->deleteRequest($data['id']);
                 
                 if(!$user){
@@ -206,12 +173,12 @@ class User
     public function changePassword($uid, $currpass, $newpass, $repeatnewpass)
     {
         try{
-            $this->attempt->isBlocked();
+            $this->request->isBlocked();
 
             try {
                 Validate::validatePassword($currpass);
             } catch (AuthException $ex) {
-                $this->attempt->addAttempt();
+                $this->request->addAttempt();
                 throw new AuthException($ex->getMessage(), $ex->getCode());
             }
 
@@ -245,7 +212,7 @@ class User
             if ($ex->getMessage() == AuthException::ERROR_VALIDATE_PASSWORD_INCORRECT ||
                 $ex->getMessage() == AuthException::ERROR_AUTH_SYSTEM_ERROR) {
 
-                $this->attempt->addAttempt();
+                $this->request->addAttempt();
             }
 
             $return = array('error' => $ex->getCode(), 'message' => $ex->getMessage());
@@ -257,7 +224,7 @@ class User
     public function changeEmail($uid, $email, $password)
     {
         try{
-            $this->attempt->isBlocked();
+            $this->request->isBlocked();
             Validate::validateEmail($email);
 
             try{
@@ -268,7 +235,7 @@ class User
 
             $user = $this->getUser($uid);
             if(!$user) {
-                $this->attempt->addAttempt();
+                $this->request->addAttempt();
                 throw new AuthException(AuthException::ERROR_AUTH_SYSTEM_ERROR, 1);
             }
 
@@ -293,7 +260,7 @@ class User
             if ($ex->getMessage() !== AuthException::ERROR_VALIDATE_PASSWORD_INCORRECT &&
                 $ex->getMessage() !== AuthException::ERROR_VALIDATE_EMAIL_NEWEMAIL_MATCH) {
 
-                $this->attempt->addAttempt();
+                $this->request->addAttempt();
             }
 
             $return = array('error' => $ex->getCode(), 'message' => $ex->getMessage());

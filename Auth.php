@@ -1,10 +1,4 @@
 <?php
-include_once __DIR__ . 'AuthException.php';
-include_once __DIR__ . 'Validate.php';
-include_once __DIR__ . 'User.php';
-include_once __DIR__ . 'Session.php';
-include_once __DIR__ . 'Request.php';  
-include_once __DIR__ . 'Attempt.php';
 
 class Auth
 {
@@ -12,37 +6,49 @@ class Auth
 	public $config;
 	private $sessionData;
 	private $userData;
-	private $request;
-        private $attempt;
 	
-	protected function __construct(\PDO $dbh, $config, $user = null, $session = null, $request = null, $attempt = null)
+	public function __construct(\PDO $dbh, $config, $user = null, $session = null)
 	{
             $this->dbh = $dbh;
             $this->config = $config;
             if (version_compare(phpversion(), '5.5.0', '<')) {
                 require("files/password.php");
             }
-
-            $this->userData = ($user == null ? new User($dbh, $config) : $user);
-            $this->sessionData = ($session == null ? new Session($dbh, $config, $this->userData) : $session);
-            $this->request = ($request == null ? new Request($dbh, $config) : $request);
-            $this->attempt = ($attempt == null ? new Attempt($dbh, $config) : $attempt);
+            
+            if(!class_exists('AuthException')) include __DIR__ . 'AuthException.php';
+            if(!class_exists('Validate')) include __DIR__ . 'Validate.php';
+            
+            if($user == null){
+                if(!class_exists('UserData')) include __DIR__ . 'User.php';
+                $this->userData = new User($dbh, $config);
+            }else{
+                $this->userData = $user;
+            }
+            
+            if($session == null){
+                if(!class_exists('Session')) include __DIR__ . 'Session.php';
+                $this->sessionData = new Session($dbh, $config, $this->userData);
+            }else{
+                $this->sessionData = $session;
+            }
 	}
 	
 	public function login($username, $password, $remember = 0)
 	{
             try {
-                
+
                 $this->isBlocked();
                 try {
                     Validate::validateUsername($username);
-                    Validate::validateUsernameBanned($username);
                     Validate::validatePassword($password);
                 } catch (AuthException $ex) {
                     throw new AuthException(AuthException::ERROR_AUTH_USERNAME_PASSWORD_INVALID, 1);
                 }
 
-                $this->checkRemember($remember);
+                if ($remember != 0 && $remember != 1) {
+                    throw new AuthException(AuthException::ERROR_AUTH_REMEMBER_ME_INVALID, 1);
+                }
+
                 $uid = $this->userData->getUID(strtolower($username));
 
                 if (!$uid) {
@@ -73,7 +79,7 @@ class Auth
 
                 if ($ex->getMessage() !== AuthException::ERROR_AUTH_SYSTEM_ERROR &&
                     $ex->getMessage() !== AuthException::ERROR_USER_BLOCKED) {
-                    $this->attempt->addAttempt();
+                    $this->userData->request->addAttempt();
                 }
 
                 $return = array('error' => $ex->getCode(), 'message' => $ex->getMessage());
@@ -91,6 +97,7 @@ class Auth
 	{
             try{
 		$this->isBlocked();
+                Validate::validateUsername($username);
                 Validate::validatePassword($password);
                 Validate::validateEmail($email);
                 
@@ -111,7 +118,7 @@ class Auth
                 
                 if($ex->getMessage() == AuthException::ERROR_VALIDATE_EMAIL_TAKEN || 
                    $ex->getMessage() == AuthException::ERROR_VALIDATE_USERNAME_TAKEN){
-                   $this->attempt->addAttempt();
+                   $this->userData->request->addAttempt();
                 }
                 
                 $return = array('error' => $ex->getCode(), 'message' => $ex->getMessage());
@@ -122,22 +129,38 @@ class Auth
 	
 	public function activate($key)
 	{
-            try {
-                $this->userData->activate($key);
+            try{
+		$this->isBlocked();	
+		Validate::validateKey($key);
+		
+		$getRequest = $this->userData->request->getRequest($key, "activation");
+		if($getRequest['error'] == 1) {
+                    throw new AuthException($getRequest['message'], 1);
+		}
+		
+		if($this->userData->getUser($getRequest['uid'])['isactive'] == 1) {
+                    $this->userData->request->deleteRequest($getRequest['id']);
+                    throw new AuthException(AuthException::ERROR_AUTH_SYSTEM_ERROR, 1);
+		}
+                
+		$query = $this->dbh->prepare("UPDATE {$this->config->table_users} SET isactive = ? WHERE id = ?");
+		$query->execute(array(1, $getRequest['uid']));
+		$this->userData->request->deleteRequest($getRequest['id']);
+                
                 $return = array('error' => 0, 'message' => 'account_activated');
                 
-            } catch (AuthException $ex) {
-
+            } catch (AuthException $ex){
+                
                 if ($ex->getMessage() === AuthException::ERROR_AUTH_SYSTEM_ERROR ||
                     $ex->getMessage() === AuthException::ERROR_VALIDATE_KEY_INVALID) {
-                    $this->attempt->addAttempt();
+                    $this->userData->request->addAttempt();
                 }
-
+                
                 $return = array('error' => $ex->getCode(), 'message' => $ex->getMessage());
             }
-
-        return $return;
-    }
+		
+            return $return;
+	}
         	
 	public function resendActivation($email)
 	{
@@ -156,13 +179,13 @@ class Auth
                     throw new AuthException(AuthException::ERROR_VALIDATE_ALREADY_ACTIVATED,1);
                 }
 		
-		$this->request->addRequest($row['id'], $email, "activation");
+		$this->userData->request->addRequest($row['id'], $email, "activation");
                 
                 $return = array('error' => 0, 'message' => 'activation_sent');
                 
             } catch (AuthException $ex){
             
-                $this->attempt->addAttempt();
+                $this->userData->request->addAttempt();
                 $return = array('error' => $ex->getCode(), 'message' => $ex->getMessage());
             }
             
@@ -173,7 +196,6 @@ class Auth
         {
             try{
                 Validate::validateUsername($username);
-                Validate::validateUsernameBanned($username);
             } catch (AuthException $ex){
                 $return = array('error' => $ex->getCode(), 'message' => $ex->getMessage());
             }
@@ -190,14 +212,7 @@ class Auth
             }
 	}
         
-        private function checkRemember($remember)
-        {
-            if ($remember != 0 && $remember != 1) {
-                throw new AuthException(AuthException::ERROR_AUTH_REMEMBER_ME_INVALID, 1);
-            }
-        }
-
-        public function getSessionUID($hash)
+	public function getSessionUID($hash)
 	{
             return $this->sessionData->getSessionUID($hash);
 	}
@@ -224,17 +239,17 @@ class Auth
 
 	public function requestReset($email)
 	{
-            return $this->request->requestReset($email);
+            return $this->userData->request->requestReset($email);
 	}  
                 
 	public function getRandomKey($length = 20)
 	{
-            return $this->request->getRandomKey($length);
+            return $this->userData->request->getRandomKey($length);
 	}
         
 	protected function isBlocked()
 	{
-            return $this->attempt->isBlocked();
+            return $this->userData->request->isBlocked();
 	}       
         
 	public function getHash($string, $salt)
