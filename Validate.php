@@ -3,7 +3,6 @@
 class Validate
 {
     static function validateUsername($username) {
-
         if (strlen($username) < 3) {
             throw new AuthException(AuthException::ERROR_VALIDATE_USERNAME_SHORT, 1);
         } elseif (strlen($username) > 30) {
@@ -11,15 +10,13 @@ class Validate
         } elseif (!ctype_alnum($username)) {
             throw new AuthException(AuthException::ERROR_VALIDATE_USERNAME_INVALID, 1);
         }
-
+    }
+    
+    static function validateUsernameBanned($username) {
         $bannedUsernames = file(__DIR__ . "/files/banned-usernames.txt", FILE_IGNORE_NEW_LINES);
-
-        if (0 < count(array_intersect(array(strtolower($username)), $bannedUsernames))) {
+        if (in_array(strtolower($username), $bannedUsernames)) {
             throw new AuthException(AuthException::ERROR_VALIDATE_USERNAME_BANNED, 1);
         }
-
-        
-        return array('error' => 0);
     }
     
     static function validatePassword($password) {
@@ -31,8 +28,6 @@ class Validate
         } elseif (!preg_match('@[A-Z]@', $password) || !preg_match('@[a-z]@', $password) || !preg_match('@[0-9]@', $password)) {
             throw new AuthException(AuthException::ERROR_VALIDATE_PASSWORD_INVALID, 1);
         }
-
-        return array('error' => 0);
     }
     
     static function validateEmail($email) {
@@ -47,20 +42,15 @@ class Validate
 
         $bannedEmails = file(__DIR__ . "/files/banned-emails.txt", FILE_IGNORE_NEW_LINES);
 
-        if (0 < count(array_intersect(array(strtolower($email)), $bannedEmails))) {
+        if (in_array(strtolower($email, $bannedEmails))) {
             throw new AuthException(AuthException::ERROR_VALIDATE_EMAIL_BANNED, 1);
         }
-
-        return array('error' => 0);
     }
     
     static function validateKey($key) {
-
         if(strlen($key) !== 20) {
             throw new AuthException(AuthException::ERROR_VALIDATE_KEY_INVALID, 1);
 	}
-
-        return array('error' => 0);
     }
     
 }   
