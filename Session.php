@@ -1,28 +1,26 @@
 <?php
+include_once __DIR__ . 'Request.php';
+include_once __DIR__ . 'Attempt.php';
 
 class Session
 {
     private $dbh;
     private $config;
-    private $userData;
+    private $request;
+    private $attempt;
         
-    private function __construct(\PDO $dbh, $config, $user = null)
+    private function __construct(\PDO $dbh, $config, $request = null, $attempt = null)
     {
         $this->dbh = $dbh;
         $this->config = $config;
-        
-        if($user == null){
-            if(!class_exists('UserData')) include __DIR__ . 'User.php';
-            $this->userData = new User($dbh, $config);
-        }else{
-            $this->userData = $user;
-        }
+        $this->request = ($request == null ? new Request($dbh, $config) : $request);
+        $this->attempt = ($attempt == null ? new Attempt($dbh, $config) : $attempt);
     }
         
     public function addSession($uid, $remember)
     {
-        $ip = $this->getIp();
-        $user = $this->userData->request->getUser($uid);
+        $ip = $this->attempt->getIp();
+        $user = $this->request->getUser($uid);
 
         if(!$user) {
             return false;
@@ -31,6 +29,7 @@ class Session
         $data['hash'] = sha1($user['salt'] . microtime());
         $agent = $_SERVER['HTTP_USER_AGENT'];
         $this->deleteExistingSessions($uid);
+        
         if($remember == true) {
             $data['expire'] = date("Y-m-d H:i:s", strtotime($this->config->cookie_remember));
             $data['expiretime'] = strtotime($data['expire']);
@@ -38,6 +37,7 @@ class Session
             $data['expire'] = date("Y-m-d H:i:s", strtotime($this->config->cookie_remember));
             $data['expiretime'] = 0;
         }
+        
         $data['cookie_crc'] = sha1($data['hash'] . $this->config->site_key);
         $query = $this->dbh->prepare("INSERT INTO {$this->config->table_sessions} (uid, hash, expiredate, ip, agent, cookie_crc) VALUES (?, ?, ?, ?, ?, ?)");
 
@@ -73,8 +73,8 @@ class Session
 
     public function checkSession($hash)
     {
-        $ip = $this->getIp();
-        if ($this->userData->request->isBlocked()) {
+        $ip = $this->attempt->getIp();
+        if ($this->attempt->isBlocked()) {
             return false;
         }
 
@@ -132,12 +132,7 @@ class Session
                 $sessionUID = $query->fetch(PDO::FETCH_ASSOC)['uid'];
             }
         }
-
         return (isset($sessionUID) ? $sessionUID : false);
     }
 
-    private function getIp()
-    {
-        return $_SERVER['REMOTE_ADDR'];
-    }
 }

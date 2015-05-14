@@ -1,17 +1,19 @@
 <?php
+include_once __DIR__ . 'AuthException.php';
+include_once __DIR__ . 'Validate.php';
+include_once __DIR__ . 'Attempt.php';
 
 class Request {
 
     private $dbh;
     private $config;
+    private $attempt;
         
-    private function __construct(\PDO $dbh, $config)
+    private function __construct(\PDO $dbh, $config, $attempt = null)
     {
         $this->dbh = $dbh;
         $this->config = $config;
-        
-        if(!class_exists('AuthException')) include __DIR__ . 'AuthException.php';
-        if(!class_exists('Validate')) include __DIR__ . 'Validate.php';
+        $this->attempt = ($attempt == null ? new Attempt($dbh, $config) : $attempt);
     }
     
     public function getRequest($key, $type) 
@@ -28,21 +30,20 @@ class Request {
                 $this->deleteRequest($row['id']);
                 throw new AuthException(AuthException::ERROR_VALIDATE_KEY_EXPIRED, 1);
             }
-
-            $return = array('error' => 0, 'id' => $row['id'], 'uid' => $row['uid']);
+            
         } catch (AuthException $ex){
             
-            $this->addAttempt();
-            $return = array('error' => $ex->getCode(), 'message' => $ex->getMessage());
+            $this->attempt->addAttempt();
+            throw new AuthException($ex->getMessage(), $ex->getCode());
         }
         
-        return $return;
+        $return = array('error' => 0, 'id' => $row['id'], 'uid' => $row['uid']);
     }
     
     public function requestReset($email)
     {
         try {
-            $this->userData->isBlocked();
+            $this->attempt->isBlocked();
 
             try {
                 Validate::validateEmail($email);
@@ -65,7 +66,7 @@ class Request {
         } catch (AuthException $ex) {
 
             if ($ex->getMessage() != AuthException::ERROR_VALIDATE_EMAIL_INVALID) {
-                $this->addAttempt();
+                $this->attempt->addAttempt();
             }
 
             $return = array('error' => $ex->getCode(), 'message' => $ex->getMessage());
@@ -125,33 +126,6 @@ class Request {
         return $query->execute(array($id));
     }
     
-    public function addAttempt()
-    {
-        $ip = $this->getIp();
-        $query = $this->dbh->prepare("SELECT count FROM {$this->config->table_attempts} WHERE ip = ?");
-        $query->execute(array($ip));
-        $row = $query->fetch(PDO::FETCH_ASSOC);
-
-        $attempt_expiredate = date("Y-m-d H:i:s", strtotime("+30 minutes"));
-
-        if (!$row) {
-            $attempt_count = 1;
-            $query = $this->dbh->prepare("INSERT INTO {$this->config->table_attempts} (count, expiredate, ip) VALUES (?, ?, ?)");
-        }else{
-            $attempt_count = $row['count'] + 1;
-            $query = $this->dbh->prepare("UPDATE {$this->config->table_attempts} SET count=?, expiredate=? WHERE ip=?");
-        }
-        
-        return $query->execute(array($attempt_count, $attempt_expiredate, $ip));
-    }
-
-    private function deleteAttempts($ip)
-    {
-        $query = $this->dbh->prepare("DELETE FROM {$this->config->table_attempts} WHERE ip = ?");
-        return $query->execute(array($ip));
-    }
-    
-    
     public function getUser($uid) 
     {
         $query = $this->dbh->prepare("SELECT id AS uid, username, password, email, salt, isactive FROM {$this->config->table_users} WHERE id = ?");
@@ -164,45 +138,13 @@ class Request {
         return (isset($data) && $data ? $data : false);   // где-то может присутствовать явная проверка (getUser($uid) === false), а метод изначально public
     }
     
-        
-    public function isBlocked() 
-    {
-        $ip = $this->getIp();
-        $query = $this->dbh->prepare("SELECT count, expiredate FROM {$this->config->table_attempts} WHERE ip = ?");
-        $query->execute(array($ip));
-
-        if ($query->rowCount() !== 0) {
-
-            $row = $query->fetch(PDO::FETCH_ASSOC);
-            $expiredate = strtotime($row['expiredate']);
-            $currentdate = strtotime(date("Y-m-d H:i:s"));
-
-            if ($row['count'] == 5) {
-                if ($currentdate < $expiredate) {
-                    throw new AuthException(AuthException::ERROR_USER_BLOCKED);
-                }
-                $this->deleteAttempts($ip);
-                
-            } elseif ($currentdate > $expiredate) {
-                $this->deleteAttempts($ip);
-            }
-        }
-
-        return false;
-    }
-                    
     public function getRandomKey($length = 20)
     {
-            $chars = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q7R8S9T0U1V2W3X4Y5Z6a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6";
-            $key = "";
-            for ($i = 0; $i < $length; $i++) {
-                    $key .= $chars{mt_rand(0, strlen($chars) - 1)};
-            }
-            return $key;
-    }
-        
-    private function getIp()
-    {
-        return $_SERVER['REMOTE_ADDR'];
+        $chars = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q7R8S9T0U1V2W3X4Y5Z6a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6";
+        $key = "";
+        for ($i = 0; $i < $length; $i++) {
+                $key .= $chars{mt_rand(0, strlen($chars) - 1)};
+        }
+        return $key;
     }
 }
