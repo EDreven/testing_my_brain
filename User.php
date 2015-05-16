@@ -14,13 +14,16 @@ class User
     private function __construct(\PDO $dbh, $config, $request = null, $attempt = null) {
         $this->dbh = $dbh;
         $this->config = $config;
-        $this->request = ($request == null ? new Request($dbh, $config) : $request);
-        $this->attempt = ($attempt == null ? new Attempt($dbh, $config) : $attempt);
+        $this->request = ($request === null ? new Request($dbh, $config) : $request);
+        $this->attempt = ($attempt === null ? new Attempt($dbh, $config) : $attempt);
     }
     
     public function activate($key)
     {
-        $this->attempt->isBlocked();	
+        if($this->attempt->isBlocked()) {
+            throw new AuthException(AuthException::ERROR_USER_BLOCKED);
+        }
+        
         Validate::validateKey($key);
 
         $getRequest = $this->request->getRequest($key, "activation");
@@ -37,7 +40,10 @@ class User
     
     public function resendActivation($email)
     {
-        $this->attempt->isBlocked();
+        if($this->attempt->isBlocked()) {
+            throw new AuthException(AuthException::ERROR_USER_BLOCKED);
+        }
+        
         Validate::validateEmail($email);
 
         $query = $this->dbh->prepare("SELECT id FROM {$this->config->table_users} WHERE email = ?");
@@ -113,7 +119,10 @@ class User
     public function deleteUser($uid, $password)
     {
         try {
-            $this->attempt->isBlocked();
+            if($this->attempt->isBlocked()) {
+                throw new AuthException(AuthException::ERROR_USER_BLOCKED);
+            }
+            
             Validate::validatePassword($password);
 
             $getUser = $this->getUser($uid);
@@ -163,7 +172,10 @@ class User
     public function resetPass($key, $password, $repeatpassword)
     {
         try {
-            $this->attempt->isBlocked();
+            if($this->attempt->isBlocked()) {
+                throw new AuthException(AuthException::ERROR_USER_BLOCKED);
+            }
+            
             Validate::validateKey($key);
             Validate::validatePassword($password);
 
@@ -206,7 +218,9 @@ class User
     public function changePassword($uid, $currpass, $newpass, $repeatnewpass)
     {
         try{
-            $this->attempt->isBlocked();
+            if($this->attempt->isBlocked()) {
+                throw new AuthException(AuthException::ERROR_USER_BLOCKED);
+            }
 
             try {
                 Validate::validatePassword($currpass);
@@ -257,7 +271,10 @@ class User
     public function changeEmail($uid, $email, $password)
     {
         try{
-            $this->attempt->isBlocked();
+            if($this->attempt->isBlocked()) {
+                throw new AuthException(AuthException::ERROR_USER_BLOCKED);
+            }
+            
             Validate::validateEmail($email);
 
             try{

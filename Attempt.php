@@ -13,6 +13,7 @@ class Attempt{
     
     public function isBlocked() 
     {
+        $isBlocked = false;
         $ip = $this->getIp();
         $query = $this->dbh->prepare("SELECT count, expiredate FROM {$this->config->table_attempts} WHERE ip = ?");
         $query->execute(array($ip));
@@ -22,19 +23,15 @@ class Attempt{
             $row = $query->fetch(PDO::FETCH_ASSOC);
             $expiredate = strtotime($row['expiredate']);
             $currentdate = strtotime(date("Y-m-d H:i:s"));
-
-            if ($row['count'] == 5) {
-                if ($currentdate < $expiredate) {
-                    throw new AuthException(AuthException::ERROR_USER_BLOCKED);
-                }
+        
+            if ($currentdate >= $expiredate) {
                 $this->deleteAttempts($ip);
-                
-            } elseif ($currentdate > $expiredate) {
-                $this->deleteAttempts($ip);
+            } elseif ($row['count'] >= 5) {
+               $isBlocked = true;
             }
         }
 
-        return false;
+        return $isBlocked;
     }
         
     public function addAttempt()

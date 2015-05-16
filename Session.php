@@ -13,8 +13,8 @@ class Session
     {
         $this->dbh = $dbh;
         $this->config = $config;
-        $this->request = ($request == null ? new Request($dbh, $config) : $request);
-        $this->attempt = ($attempt == null ? new Attempt($dbh, $config) : $attempt);
+        $this->request = ($request === null ? new Request($dbh, $config) : $request);
+        $this->attempt = ($attempt === null ? new Attempt($dbh, $config) : $attempt);
     }
         
     public function addSession($uid, $remember)
@@ -22,30 +22,29 @@ class Session
         $ip = $this->attempt->getIp();
         $user = $this->request->getUser($uid);
 
-        if(!$user) {
-            return false;
-        }
+        if($user) {
         
-        $data['hash'] = sha1($user['salt'] . microtime());
-        $agent = $_SERVER['HTTP_USER_AGENT'];
-        $this->deleteExistingSessions($uid);
-        
-        if($remember == true) {
-            $data['expire'] = date("Y-m-d H:i:s", strtotime($this->config->cookie_remember));
-            $data['expiretime'] = strtotime($data['expire']);
-        } else {
-            $data['expire'] = date("Y-m-d H:i:s", strtotime($this->config->cookie_remember));
-            $data['expiretime'] = 0;
-        }
-        
-        $data['cookie_crc'] = sha1($data['hash'] . $this->config->site_key);
-        $query = $this->dbh->prepare("INSERT INTO {$this->config->table_sessions} (uid, hash, expiredate, ip, agent, cookie_crc) VALUES (?, ?, ?, ?, ?, ?)");
+            $data['hash'] = sha1($user['salt'] . microtime());
+            $agent = $_SERVER['HTTP_USER_AGENT'];
+            $this->deleteExistingSessions($uid);
 
-        if(!$query->execute(array($uid, $data['hash'], $data['expire'], $ip, $agent, $data['cookie_crc']))) {
-                return false;
-        }
+            $data['expire'] = date("Y-m-d H:i:s", strtotime($this->config->cookie_remember));
+            // $remember == true, учитывая что в checkRemember ($remember != 0 && $remember != 1) -> false
+            $data['expiretime'] = ($remember == true ? strtotime($data['expire']) : 0);
+            
+            $data['cookie_crc'] = sha1($data['hash'] . $this->config->site_key);
+            $query = $this->dbh->prepare("INSERT INTO {$this->config->table_sessions} (uid, hash, expiredate, ip, agent, cookie_crc) VALUES (?, ?, ?, ?, ?, ?)");
 
-        $data['expire'] = strtotime($data['expire']);
+            if($query->execute(array($uid, $data['hash'], $data['expire'], $ip, $agent, $data['cookie_crc']))) {
+                $data['expire'] = strtotime($data['expire']);
+            }else{
+                $data = false;
+            }
+
+        }else{
+            $data = false;
+        }
+        
         return $data;
     }
 
@@ -65,56 +64,50 @@ class Session
     {
         $query = $this->dbh->prepare("SELECT uid FROM {$this->config->table_sessions} WHERE hash = ?");
         $query->execute(array($hash));
-        if ($query->rowCount() == 0) {
-            return false;
-        }
-        return $query->fetch(PDO::FETCH_ASSOC)['uid'];
+
+        return ($query->rowCount() == 0 ? false : $query->fetch(PDO::FETCH_ASSOC)['uid']);
     }
 
     public function checkSession($hash)
     {
-        $ip = $this->attempt->getIp();
-        if ($this->attempt->isBlocked()) {
-            return false;
-        }
+        $checkSession = false;
+        if (strlen($hash) == 40 && !$this->attempt->isBlocked()) {
 
-        if (strlen($hash) != 40) {
-                return false;
-        }
-        $query = $this->dbh->prepare("SELECT id, uid, expiredate, ip, agent, cookie_crc FROM {$this->config->table_sessions} WHERE hash = ?");
-        $query->execute(array($hash));
-        if ($query->rowCount() == 0) {
-            return false;
-        }
+            $query = $this->dbh->prepare("SELECT id, uid, expiredate, ip, agent, cookie_crc FROM {$this->config->table_sessions} WHERE hash = ?");
+            $query->execute(array($hash));
+            
+            if ($query->rowCount() != 0) {
 
-        $row = $query->fetch(PDO::FETCH_ASSOC);
-        $sid = $row['id'];
-        $uid = $row['uid'];
-        $expiredate = strtotime($row['expiredate']);
-        $currentdate = strtotime(date("Y-m-d H:i:s"));
-        $db_ip = $row['ip'];
-        $db_agent = $row['agent'];
-        $db_cookie = $row['cookie_crc'];
+                $row = $query->fetch(PDO::FETCH_ASSOC);
+                $sid = $row['id'];
+                $uid = $row['uid'];
+                
+                $db_ip = $row['ip'];
+                $db_agent = $row['agent'];
+                $db_cookie = $row['cookie_crc'];
 
-        if ($currentdate > $expiredate) {
-            $this->deleteExistingSessions($uid);
-            return false;
-        }
+                if (strtotime(date("Y-m-d H:i:s")) > strtotime($row['expiredate'])) {
+                    $this->deleteExistingSessions($uid);
+                }else{
 
-        if ($ip != $db_ip) {
-            if ($_SERVER['HTTP_USER_AGENT'] != $db_agent) {
-                $this->deleteExistingSessions($uid);
-                return false;
+                    $ip = $this->attempt->getIp();
+
+                    if ($ip != $db_ip) {
+                        
+                        if ($_SERVER['HTTP_USER_AGENT'] != $db_agent) {
+                            $this->deleteExistingSessions($uid);
+                        }else{
+                            $checkSession = $this->updateSessionIp($sid, $ip);
+                        }
+                        
+                    }elseif ($db_cookie == sha1($hash . $this->config->site_key)) {
+                        $checkSession = true;
+                    }
+                }
             }
-
-            return $this->updateSessionIp($sid, $ip);
         }
-
-        if ($db_cookie == sha1($hash . $this->config->site_key)) {
-            return true;
-        }
-
-        return false;
+        
+        return $checkSession;
     }
 
     private function updateSessionIp($sid, $ip)

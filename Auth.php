@@ -23,17 +23,20 @@ class Auth
                 require("files/password.php");
             }
 
-            $this->userData = ($user == null ? new User($dbh, $config) : $user);
-            $this->sessionData = ($session == null ? new Session($dbh, $config, $this->userData) : $session);
-            $this->request = ($request == null ? new Request($dbh, $config) : $request);
-            $this->attempt = ($attempt == null ? new Attempt($dbh, $config) : $attempt);
+            $this->userData = ($user === null ? new User($dbh, $config) : $user);
+            $this->sessionData = ($session === null ? new Session($dbh, $config, $this->userData) : $session);
+            $this->request = ($request === null ? new Request($dbh, $config) : $request);
+            $this->attempt = ($attempt === null ? new Attempt($dbh, $config) : $attempt);
 	}
 	
 	public function login($username, $password, $remember = 0)
 	{
             try {
                 
-                $this->isBlocked();
+                if($this->isBlocked()) {
+                    throw new AuthException(AuthException::ERROR_USER_BLOCKED);
+                }
+                
                 try {
                     Validate::validateUsername($username);
                     Validate::validateUsernameBanned($username);
@@ -90,7 +93,10 @@ class Auth
 	public function register($email, $username, $password, $repeatpassword)
 	{
             try{
-		$this->isBlocked();
+		if($this->isBlocked()) {
+                    throw new AuthException(AuthException::ERROR_USER_BLOCKED);
+                }
+                
                 Validate::validatePassword($password);
                 Validate::validateEmail($email);
                 
@@ -142,7 +148,9 @@ class Auth
 	public function resendActivation($email)
 	{
             try{
-		$this->isBlocked();
+		if($this->isBlocked()) {
+                    throw new AuthException(AuthException::ERROR_USER_BLOCKED);
+                }
 		Validate::validateEmail($email);
                 
 		$query = $this->dbh->prepare("SELECT id FROM {$this->config->table_users} WHERE email = ?");

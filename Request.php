@@ -13,7 +13,7 @@ class Request {
     {
         $this->dbh = $dbh;
         $this->config = $config;
-        $this->attempt = ($attempt == null ? new Attempt($dbh, $config) : $attempt);
+        $this->attempt = ($attempt === null ? new Attempt($dbh, $config) : $attempt);
     }
     
     public function getRequest($key, $type) 
@@ -43,7 +43,9 @@ class Request {
     public function requestReset($email)
     {
         try {
-            $this->attempt->isBlocked();
+            if($this->attempt->isBlocked()) {
+                throw new AuthException(AuthException::ERROR_USER_BLOCKED);
+            }
 
             try {
                 Validate::validateEmail($email);
@@ -133,9 +135,11 @@ class Request {
 
         if ($query->rowCount() == 0) {
             $data = $query->fetch(PDO::FETCH_ASSOC);
+        } else {
+            $data = false; // где-то может присутствовать явная проверка (getUser($uid) === false), а метод изначально public
         }
                 
-        return (isset($data) && $data ? $data : false);   // где-то может присутствовать явная проверка (getUser($uid) === false), а метод изначально public
+        return $data;   
     }
     
     public function getRandomKey($length = 20)
