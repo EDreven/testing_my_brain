@@ -42,7 +42,7 @@ class Validate
 
         $bannedEmails = file(__DIR__ . "/files/banned-emails.txt", FILE_IGNORE_NEW_LINES);
 
-        if (in_array(strtolower($email, $bannedEmails))) {
+        if (in_array(strtolower($email), $bannedEmails)) {
             throw new AuthException(AuthException::ERROR_VALIDATE_EMAIL_BANNED, 1);
         }
     }
