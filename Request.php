@@ -1,15 +1,15 @@
 <?php
-include_once __DIR__ . 'AuthException.php';
-include_once __DIR__ . 'Validate.php';
-include_once __DIR__ . 'Attempt.php';
+include_once __DIR__ . '\AuthException.php';
+include_once __DIR__ . '\Validate.php';
+include_once __DIR__ . '\Attempt.php';
 
-class Request {
-
+class Request
+{
     private $dbh;
     private $config;
     private $attempt;
         
-    private function __construct(\PDO $dbh, $config, $attempt = null)
+    function __construct(\PDO $dbh, $config, $attempt = null)
     {
         $this->dbh = $dbh;
         $this->config = $config;
@@ -37,14 +37,14 @@ class Request {
             throw new AuthException($ex->getMessage(), $ex->getCode());
         }
         
-        $return = array('error' => 0, 'id' => $row['id'], 'uid' => $row['uid']);
+        return array('error' => 0, 'id' => $row['id'], 'uid' => $row['uid']);
     }
     
     public function requestReset($email)
     {
         try {
             if($this->attempt->isBlocked()) {
-                throw new AuthException(AuthException::ERROR_USER_BLOCKED);
+                throw new AuthException(AuthException::ERROR_USER_BLOCKED, 1);
             }
 
             try {

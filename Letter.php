@@ -21,8 +21,15 @@ class Letter {
     {
         return mail($email, $title, $HTMLLetter, $headers);
     }
+    public function SendMailLogin($title, $username, $password) {
+        
+    }
     
     function Send() {
+        
+        $func = $this->type;
+        $func();
+        
         switch ($this->type) {
 
             case "Login":

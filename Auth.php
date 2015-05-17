@@ -1,10 +1,10 @@
 <?php
-include_once __DIR__ . 'AuthException.php';
-include_once __DIR__ . 'Validate.php';
-include_once __DIR__ . 'User.php';
-include_once __DIR__ . 'Session.php';
-include_once __DIR__ . 'Request.php';  
-include_once __DIR__ . 'Attempt.php';
+include_once __DIR__ . '\AuthException.php';
+include_once __DIR__ . '\Validate.php';
+include_once __DIR__ . '\User.php';
+include_once __DIR__ . '\Session.php';
+include_once __DIR__ . '\Request.php';  
+include_once __DIR__ . '\Attempt.php';
 
 class Auth
 {
@@ -15,7 +15,7 @@ class Auth
 	private $request;
         private $attempt;
 	
-	protected function __construct(\PDO $dbh, $config, $user = null, $session = null, $request = null, $attempt = null)
+	function __construct(\PDO $dbh, $config, $user = null, $session = null, $request = null, $attempt = null)
 	{
             $this->dbh = $dbh;
             $this->config = $config;

@@ -1,11 +1,11 @@
 <?php
 
-class Attempt{
-
+class Attempt
+{
     private $dbh;
     private $config;
         
-    private function __construct(\PDO $dbh, $config)
+    function __construct(\PDO $dbh, $config)
     {
         $this->dbh = $dbh;
         $this->config = $config;

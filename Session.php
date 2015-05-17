@@ -9,7 +9,7 @@ class Session
     private $request;
     private $attempt;
         
-    private function __construct(\PDO $dbh, $config, $request = null, $attempt = null)
+    function __construct(\PDO $dbh, $config, $request = null, $attempt = null)
     {
         $this->dbh = $dbh;
         $this->config = $config;
