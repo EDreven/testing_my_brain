@@ -56,7 +56,6 @@ class RequestTest extends PHPUnit_Framework_TestCase
             array(false, '@@@', 0, array('error' => 1, 'message' => AuthException::ERROR_VALIDATE_EMAIL_INVALID)),
             array(false, 'valid@email.com', 0, array('error' => 1, 'message' => AuthException::ERROR_VALIDATE_EMAIL_INCORRECT)),
             array(false, 'valid@email.com', 1, array('error' => 0, 'message' => 'reset_requested')),
-//            array(false, date("Y-m-d H:i:s", strtotime("+1 minutes")), 1, 1, true),
         );
     }
     
