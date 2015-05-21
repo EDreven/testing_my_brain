@@ -68,7 +68,7 @@ class SessiontTest extends PHPUnit_Framework_TestCase
             $statement = $this->getMockBuilder('PDOStatement')->getMock();
 
             $statement->method('rowCount')->willReturn($rowCount);
-            $statement->method('fetch')->willReturn($row);//array('id' => $id, 'uid' => $uid, 'ip' => $ip, 'expiredate' => $expiredate, 'agent' => $agent, 'cookie_crc' => $cookie_crc ));
+//            $statement->method('fetch')->willReturn($row);
         
         $dbh->method('prepare')->willReturn($statement);
         
