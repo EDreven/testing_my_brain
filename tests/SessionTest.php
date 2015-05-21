@@ -49,7 +49,7 @@ class SessiontTest extends PHPUnit_Framework_TestCase
     /**
      * @dataProvider getCheckSessionDataProvider
      */
-    public function testcheckSession($hash, $isBlocked, $rowCount, $row, $result)
+    public function testCheckSession($hash, $isBlocked, $rowCount, $row, $result)
     {
         $_SERVER['HTTP_USER_AGENT'] = 'HTTP_USER_AGENT';
         $dbh = $this->getMockBuilder('mockPDO')->getMock();
