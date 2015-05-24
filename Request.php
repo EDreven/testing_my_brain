@@ -122,7 +122,7 @@ class Request
         }
     }
 
-    private function deleteRequest($id)
+    public function deleteRequest($id)
     {
         $query = $this->dbh->prepare("DELETE FROM {$this->config->table_requests} WHERE id = ?");
         return $query->execute(array($id));

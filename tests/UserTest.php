@@ -16,9 +16,6 @@ class mockRequest extends Request
 
 class UserTest extends PHPUnit_Framework_TestCase
 {
-    public $attempt;
-    public $request;
-    
     public function getDeleteUserDataProvider()
     {
         $validatePass = 'Validate-Pass_123';
@@ -51,26 +48,28 @@ class UserTest extends PHPUnit_Framework_TestCase
             $attempt->method('isBlocked')->willReturn($isBlocked);
             $attempt->method('addAttempt')->willReturn(true);
         
-        $this->user = new User($dbh, $config, $request, $attempt); 
+        $user = new User($dbh, $config, $request, $attempt); 
         
             $statement = $this->getMockBuilder('PDOStatement')->getMock();
             $statement->method('execute')->willReturn($execute);
         
         $dbh->method('prepare')->willReturn($statement);
         
-        $this->assertEquals($result, $this->user->deleteUser(1, $password));
+        $this->assertEquals($result, $user->deleteUser(1, $password));
 
     }
 
     public function getResetPassDataProvider()
     {
+        $validatePass = 'Validate-Pass_123';
+        
         return array(
             array(true, false, false, 0, array('error' => 1, 'message' => AuthException::ERROR_USER_BLOCKED )),
             array(false, false, false, 0, array('error' => 1, 'message' => AuthException::ERROR_VALIDATE_PASSWORD_NEWPASSWORD_MATCH )),
-            array(false, 'Validate-Pass_123', false, 0, array('error' => 1, 'message' => AuthException::ERROR_AUTH_SYSTEM_ERROR )),
-            array(false, 'Validate-Pass_123', array('password' => 'Validate-Pass_123', 'salt' => ''), 0, array('error' => 1, 'message' => AuthException::ERROR_VALIDATE_PASSWORD_NEWPASSWORD_MATCH )),
-            array(false, 'Validate-Pass_123', array('password' => false, 'salt' => ''), 0, array('error' => 1, 'message' => AuthException::ERROR_AUTH_SYSTEM_ERROR )),
-            array(false, 'Validate-Pass_123', array('password' => false, 'salt' => ''), 1, array('error' => 0, 'message' => 'password_reset' )),
+            array(false, $validatePass, false, 0, array('error' => 1, 'message' => AuthException::ERROR_AUTH_SYSTEM_ERROR )),
+            array(false, $validatePass, array('password' => $validatePass, 'salt' => ''), 0, array('error' => 1, 'message' => AuthException::ERROR_VALIDATE_PASSWORD_NEWPASSWORD_MATCH )),
+            array(false, $validatePass, array('password' => false, 'salt' => ''), 0, array('error' => 1, 'message' => AuthException::ERROR_AUTH_SYSTEM_ERROR )),
+            array(false, $validatePass, array('password' => false, 'salt' => ''), 1, array('error' => 0, 'message' => 'password_reset' )),
         );
     }
 
@@ -99,14 +98,14 @@ class UserTest extends PHPUnit_Framework_TestCase
             $attempt->method('isBlocked')->willReturn($isBlocked);
             $attempt->method('addAttempt')->willReturn(true);
         
-        $this->user = new User($dbh, $config, $request, $attempt); 
+        $user = new User($dbh, $config, $request, $attempt); 
         
             $statement = $this->getMockBuilder('PDOStatement')->getMock();
             $statement->method('rowCount')->willReturn($rowCount);
         
         $dbh->method('prepare')->willReturn($statement);
         
-        $this->assertEquals($result, $this->user->resetPass($validateKey, $validatePass, $repeatpassword));
+        $this->assertEquals($result, $user->resetPass($validateKey, $validatePass, $repeatpassword));
 
     }
 }

@@ -9,8 +9,6 @@ class mockAttempt extends Attempt
 
 class RequestTest extends PHPUnit_Framework_TestCase
 {
-    public $request;
-    
     public function getRequestDataProvider()
     {
         return array(
@@ -33,7 +31,7 @@ class RequestTest extends PHPUnit_Framework_TestCase
         $attempt = $this->getMockBuilder('mockAttempt')->getMock();
         $attempt->method('addAttempt')->willReturn(true);
         
-        $this->request = new Request($dbh, $config, $attempt); 
+        $request = new Request($dbh, $config, $attempt); 
         
             $statement = $this->getMockBuilder('PDOStatement')->getMock();
 
@@ -43,7 +41,7 @@ class RequestTest extends PHPUnit_Framework_TestCase
         $dbh->method('prepare')->willReturn($statement);
         
         try {
-            $this->assertEquals(array('error' => 0, 'id' => $id, 'uid' => $uid), $this->request->getRequest(1, 1));
+            $this->assertEquals(array('error' => 0, 'id' => $id, 'uid' => $uid), $request->getRequest(1, 1));
         } catch (AuthException $ex) {
             $this->assertEquals($result, $ex->getMessage());
         }
@@ -56,6 +54,7 @@ class RequestTest extends PHPUnit_Framework_TestCase
             array(false, '@@@', 0, array('error' => 1, 'message' => AuthException::ERROR_VALIDATE_EMAIL_INVALID)),
             array(false, 'valid@email.com', 0, array('error' => 1, 'message' => AuthException::ERROR_VALIDATE_EMAIL_INCORRECT)),
             array(false, 'valid@email.com', 1, array('error' => 0, 'message' => 'reset_requested')),
+//            array(false, date("Y-m-d H:i:s", strtotime("+1 minutes")), 1, 1, true),
         );
     }
     
@@ -76,7 +75,7 @@ class RequestTest extends PHPUnit_Framework_TestCase
         $attempt = $this->getMockBuilder('mockAttempt')->getMock();
         $attempt->method('isBlocked')->willReturn($isBlocken);
         
-        $this->request = new Request($dbh, $config, $attempt); 
+        $request = new Request($dbh, $config, $attempt); 
         
             $statement = $this->getMockBuilder('PDOStatement')->getMock();
 
@@ -86,6 +85,6 @@ class RequestTest extends PHPUnit_Framework_TestCase
         
         $dbh->method('prepare')->willReturn($statement);
         
-        $this->assertEquals($result, $this->request->requestReset($email) );
+        $this->assertEquals($result, $request->requestReset($email) );
     }
 }

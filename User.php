@@ -22,7 +22,7 @@ class User
     public function activate($key)
     {
         if($this->attempt->isBlocked()) {
-            throw new AuthException(AuthException::ERROR_USER_BLOCKED);
+            throw new AuthException(AuthException::ERROR_USER_BLOCKED, 1);
         }
         
         Validate::validateKey($key);
@@ -42,7 +42,7 @@ class User
     public function resendActivation($email)
     {
         if($this->attempt->isBlocked()) {
-            throw new AuthException(AuthException::ERROR_USER_BLOCKED);
+            throw new AuthException(AuthException::ERROR_USER_BLOCKED, 1);
         }
         
         Validate::validateEmail($email);
@@ -121,7 +121,7 @@ class User
     {
         try {
             if($this->attempt->isBlocked()) {
-                throw new AuthException(AuthException::ERROR_USER_BLOCKED);
+                throw new AuthException(AuthException::ERROR_USER_BLOCKED, 1);
             }
             
             Validate::validatePassword($password);
@@ -174,7 +174,7 @@ class User
     {
         try {
             if($this->attempt->isBlocked()) {
-                throw new AuthException(AuthException::ERROR_USER_BLOCKED);
+                throw new AuthException(AuthException::ERROR_USER_BLOCKED, 1);
             }
             
             Validate::validateKey($key);
@@ -220,7 +220,7 @@ class User
     {
         try{
             if($this->attempt->isBlocked()) {
-                throw new AuthException(AuthException::ERROR_USER_BLOCKED);
+                throw new AuthException(AuthException::ERROR_USER_BLOCKED, 1);
             }
 
             try {
@@ -273,7 +273,7 @@ class User
     {
         try{
             if($this->attempt->isBlocked()) {
-                throw new AuthException(AuthException::ERROR_USER_BLOCKED);
+                throw new AuthException(AuthException::ERROR_USER_BLOCKED, 1);
             }
             
             Validate::validateEmail($email);

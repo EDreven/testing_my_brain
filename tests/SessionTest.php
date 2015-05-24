@@ -16,9 +16,6 @@ class mockRequest extends Request
 
 class SessiontTest extends PHPUnit_Framework_TestCase
 {
-    public $attempt;
-    public $request;
-    
     public function getCheckSessionDataProvider()
     {
         $trueCookie_crc = sha1('0123456789012345678901234567890123456789' . 'site_key');
@@ -49,7 +46,7 @@ class SessiontTest extends PHPUnit_Framework_TestCase
     /**
      * @dataProvider getCheckSessionDataProvider
      */
-    public function testCheckSession($hash, $isBlocked, $rowCount, $row, $result)
+    public function testcheckSession($hash, $isBlocked, $rowCount, $row, $result)
     {
         $_SERVER['HTTP_USER_AGENT'] = 'HTTP_USER_AGENT';
         $dbh = $this->getMockBuilder('mockPDO')->getMock();
@@ -63,16 +60,15 @@ class SessiontTest extends PHPUnit_Framework_TestCase
         $attempt->method('isBlocked')->willReturn($isBlocked);
         $attempt->method('getIp')->willReturn($_SERVER['REMOTE_ADDR']);
         
-        $this->session = new Session($dbh, $config, $request, $attempt); 
+        $session = new Session($dbh, $config, $request, $attempt); 
         
             $statement = $this->getMockBuilder('PDOStatement')->getMock();
 
             $statement->method('rowCount')->willReturn($rowCount);
-//            $statement->method('fetch')->willReturn($row);
         
         $dbh->method('prepare')->willReturn($statement);
         
-        $this->assertEquals($result, $this->session->checkSession($hash));
+        $this->assertEquals($result, $session->checkSession($hash));
 
     }
 }
